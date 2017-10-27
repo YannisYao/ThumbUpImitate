@@ -11,6 +11,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -23,6 +24,15 @@ import android.view.animation.AccelerateInterpolator;
 
 public class JiKeThumbUpView extends View implements View.OnClickListener {
     private static final int ANIMATOR_TIME = 200;
+    private static final int DP_2 = 2;//圆圈宽度
+    //圆圈颜色 此处其实设置基本色，如果要让样式消失，直接可以用alpha值，没必要用颜色
+    private static final int START_COLOR = Color.parseColor("#00e24d3d");
+    private static final int END_COLOR = Color.parseColor("#88e24d3d");
+
+    //文本颜色
+    private static final int TEXT_DEFAULT_COLOR = Color.parseColor("#cccccc");
+    //private static final int TEXT_DEFAULT_END_COLOR = Color.parseColor("#00cccccc");
+
     private Bitmap thumbup;
     private Bitmap thumbcancel;
     private Bitmap shining;
@@ -32,8 +42,11 @@ public class JiKeThumbUpView extends View implements View.OnClickListener {
     private float scaleThumb = 1;
     private float fraction = 0;//当前动画完成度
     private boolean isFirst = true;
-    private int count = 109;
+    private int count = 101;
     private float sliding = 0;
+    private Paint circlePaint;
+    private Path clipPath;
+
 
     public int getCount() {
         return count;
@@ -72,6 +85,9 @@ public class JiKeThumbUpView extends View implements View.OnClickListener {
         thumbup = BitmapFactory.decodeResource(getResources(),R.drawable.ic_messages_like_selected);
         thumbcancel = BitmapFactory.decodeResource(getResources(),R.drawable.ic_messages_like_unselected);
         shining = BitmapFactory.decodeResource(getResources(),R.drawable.ic_messages_like_selected_shining);
+        circlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);//抗锯齿
+        circlePaint.setStyle(Paint.Style.STROKE);
+        circlePaint.setStrokeWidth(DP_2);
         setOnClickListener(this);
     }
 
@@ -107,66 +123,45 @@ public class JiKeThumbUpView extends View implements View.OnClickListener {
         if(isFirst){
             canvas.drawBitmap(thumbcancel,left,top,paint);
             paint.setTextSize(40);
-            paint.setColor(Color.GRAY);
+            paint.setColor(TEXT_DEFAULT_COLOR);
             Paint.FontMetrics fontMetrics = paint.getFontMetrics();
             canvas.drawText(String.valueOf(count),centerX+50,centerY-(fontMetrics.ascent + fontMetrics.descent)/2,paint);
-              /* char[] chars = String.valueOf(count).toCharArray();
-                for(int i =0;i< chars.length;i++){
-                    String text = String.valueOf(chars[i]);
-                    float textWidth  = 0;
-                    if(i >0 ){
-                        for(int j = 0 ; j < i ;j ++){
-                            textWidth = textWidth + paint.measureText(String.valueOf(chars[j]));
-                        }
-                    }
-                    canvas.drawText(text,centerX+50+textWidth,centerY-(fontMetrics.ascent + fontMetrics.descent)/2+80,paint);
-                }*/
             isFirst = false;
             return;
         }
 
         if(isCheck) {
-            if(fraction < 0.5f){
-                 canvas.drawBitmap(ressetBitmap(thumbcancel,scaleThumb),left,top,paint);
-            }else {
-                canvas.drawBitmap(bitmap, left, top, paint);
-            }
             paint.setTextSize(40);
-            paint.setColor(Color.GRAY);
+            paint.setColor(TEXT_DEFAULT_COLOR);
             Paint.FontMetrics fontMetrics = paint.getFontMetrics();
             String noChangeArea = splitText(count-1,count)[0][0];
             String oldChangeArea = splitText(count-1,count)[0][1];
             String newChangeArea = splitText(count-1,count)[1][1];
-
             float xOffset = 0;
             if(!TextUtils.isEmpty(noChangeArea)){
                 canvas.drawText(noChangeArea,centerX+50,centerY-(fontMetrics.ascent + fontMetrics.descent)/2,paint);
                 xOffset = paint.measureText(noChangeArea);
             }
-            if(!TextUtils.isEmpty(newChangeArea)){
-                canvas.drawText(newChangeArea,centerX+50+xOffset,centerY-(fontMetrics.ascent + fontMetrics.descent)/2+ 50- sliding,paint);
+            if(fraction < 0.5f){
+                 canvas.drawBitmap(ressetBitmap(thumbcancel,scaleThumb),left,top,paint);
+                if(!TextUtils.isEmpty(oldChangeArea)){
+                    canvas.drawText(oldChangeArea,centerX+50+xOffset,centerY-(fontMetrics.ascent + fontMetrics.descent)/2- sliding,paint);
+                }
+            }else {
+                canvas.drawBitmap(bitmap, left, top, paint);
+                if(!TextUtils.isEmpty(newChangeArea)){
+                    canvas.drawText(newChangeArea,centerX+50+xOffset,centerY-(fontMetrics.ascent + fontMetrics.descent)/2+ 50- sliding,paint);
+                }
+                canvas.drawBitmap(shining,left+5,top - shining.getHeight()/2,paint);
             }
-            paint.setAlpha(alphaCircle);
-            if(!TextUtils.isEmpty(oldChangeArea)){
-                canvas.drawText(oldChangeArea,centerX+50+xOffset,centerY-(fontMetrics.ascent + fontMetrics.descent)/2- sliding,paint);
-            }
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setColor(Color.RED);
-            paint.setStrokeWidth(3);
-            paint.setAlpha(alphaCircle);
-            canvas.drawCircle(centerX,centerY,bitmap.getWidth()/2+radius,paint);
-            paint.setAlpha(255-alphaCircle);
-            canvas.drawBitmap(shining,left+5,top - shining.getHeight()/2,paint);
+            circlePaint.setAlpha(alphaCircle);
+            clipPath = new Path();
+            clipPath.addCircle(centerX,centerY,bitmap.getWidth()/2+radius,Path.Direction.CW);
+            canvas.drawPath(clipPath,circlePaint);
         }else{
             paint.setTextSize(40);
-            paint.setColor(Color.GRAY);
+            paint.setColor(TEXT_DEFAULT_COLOR);
             Paint.FontMetrics fontMetrics = paint.getFontMetrics();
-            if(fraction < 0.5f){
-                canvas.drawBitmap(bitmap, left, top, paint);
-            }else{
-                canvas.drawBitmap(ressetBitmap(thumbcancel,scaleThumb),left,top,paint);
-                //canvas.drawText(String.valueOf(count),centerX+50,centerY-(fontMetrics.ascent + fontMetrics.descent)/2,paint);
-            }
             String noChangeArea = splitText(count+1,count)[0][0];
             String oldChangeArea = splitText(count+1,count)[0][1];
             String newChangeArea = splitText(count+1,count)[1][1];
@@ -175,14 +170,18 @@ public class JiKeThumbUpView extends View implements View.OnClickListener {
                 canvas.drawText(noChangeArea,centerX+50,centerY-(fontMetrics.ascent + fontMetrics.descent)/2,paint);
                 xOffset = paint.measureText(noChangeArea);
             }
-            if(!TextUtils.isEmpty(newChangeArea)){
-                canvas.drawText(newChangeArea,centerX+50+xOffset,centerY-(fontMetrics.ascent + fontMetrics.descent)/2-50+ sliding,paint);
+            if(fraction < 0.5f){
+                canvas.drawBitmap(bitmap, left, top, paint);
+                if(!TextUtils.isEmpty(oldChangeArea)){
+                    canvas.drawText(oldChangeArea,centerX+50+xOffset,centerY-(fontMetrics.ascent + fontMetrics.descent)/2+ sliding,paint);
+                }
+                canvas.drawBitmap(shining,left+5,top - shining.getHeight()/2,paint);
+            }else{
+                canvas.drawBitmap(ressetBitmap(thumbcancel,scaleThumb),left,top,paint);
+                if(!TextUtils.isEmpty(newChangeArea)){
+                    canvas.drawText(newChangeArea,centerX+50+xOffset,centerY-(fontMetrics.ascent + fontMetrics.descent)/2-50+ sliding,paint);
+                }
             }
-            paint.setAlpha(alphaCircle);
-            if(!TextUtils.isEmpty(oldChangeArea)){
-                canvas.drawText(oldChangeArea,centerX+50+xOffset,centerY-(fontMetrics.ascent + fontMetrics.descent)/2+ sliding,paint);
-            }
-            canvas.drawBitmap(shining,left+5,top - shining.getHeight()/2,paint);
         }
     }
 
@@ -233,6 +232,7 @@ public class JiKeThumbUpView extends View implements View.OnClickListener {
     }
     public void setRadius(float radius) {
         this.radius = radius;
+        circlePaint.setColor((Integer) evaluate(fraction,START_COLOR,END_COLOR));
         invalidate();//千万不要忘记重绘这句代码
     }
 
@@ -261,4 +261,42 @@ public class JiKeThumbUpView extends View implements View.OnClickListener {
                 }
             });
     }
+
+    public Object evaluate(float fraction, Object startValue, Object endValue) {
+        int startInt = (Integer) startValue;
+        float startA = ((startInt >> 24) & 0xff) / 255.0f;
+        float startR = ((startInt >> 16) & 0xff) / 255.0f;
+        float startG = ((startInt >> 8) & 0xff) / 255.0f;
+        float startB = (startInt & 0xff) / 255.0f;
+
+        int endInt = (Integer) endValue;
+        float endA = ((endInt >> 24) & 0xff) / 255.0f;
+        float endR = ((endInt >> 16) & 0xff) / 255.0f;
+        float endG = ((endInt >> 8) & 0xff) / 255.0f;
+        float endB = (endInt & 0xff) / 255.0f;
+
+        // convert from sRGB to linear
+        startR = (float) Math.pow(startR, 2.2);
+        startG = (float) Math.pow(startG, 2.2);
+        startB = (float) Math.pow(startB, 2.2);
+
+        endR = (float) Math.pow(endR, 2.2);
+        endG = (float) Math.pow(endG, 2.2);
+        endB = (float) Math.pow(endB, 2.2);
+
+        // compute the interpolated color in linear space
+        float a = startA + fraction * (endA - startA);
+        float r = startR + fraction * (endR - startR);
+        float g = startG + fraction * (endG - startG);
+        float b = startB + fraction * (endB - startB);
+
+        // convert back to sRGB in the [0..255] range
+        a = a * 255.0f;
+        r = (float) Math.pow(r, 1.0 / 2.2) * 255.0f;
+        g = (float) Math.pow(g, 1.0 / 2.2) * 255.0f;
+        b = (float) Math.pow(b, 1.0 / 2.2) * 255.0f;
+
+        return Math.round(a) << 24 | Math.round(r) << 16 | Math.round(g) << 8 | Math.round(b);
+    }
+
 }
